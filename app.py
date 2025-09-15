@@ -6,6 +6,7 @@ from io import BytesIO
 import colorsys
 from fonts_config import load_font, FONTS
 import numpy as np
+import base64
 
 # ------------------ Functions ------------------
 def apply_edits(image, saturation, brightness, contrast, effect, hue_shift, r_scale, g_scale, b_scale):
@@ -117,6 +118,12 @@ def process_batch(images, saturation, brightness, contrast, effect,
     zip_buffer.seek(0)
     return zip_buffer
 
+def pil_to_base64(img):
+    """Convert PIL Image to base64 string"""
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode()
+
 # ------------------ Streamlit UI ------------------
 st.set_page_config(page_title="Smart Image Editor", layout="wide")
 st.title("✨ Smart Image Editor")
@@ -169,23 +176,56 @@ if uploaded_files:
         edited_preview = add_lower_third(edited_preview, lower_text, font_name, font_size, font_color, lower_pos)
 
         if logo_file:
-            st.write("👉 Drag your logo into position")
-            edited_np = np.array(edited_preview.convert("RGB"))  # ✅ Ensure RGB format
+            st.write("👉 Drag and resize your logo directly")
+
+            # Convert background (force RGB to avoid transparency crash)
+            edited_np = np.array(edited_preview.convert("RGB"))
+
+            # Convert logo to base64 for st_canvas
+            logo_img = Image.open(logo_file).convert("RGBA")
+            logo_src = pil_to_base64(logo_img)
+
+            # Initial size & position
+            init_x = edited_preview.width - int(edited_preview.width * logo_scale) - 20
+            init_y = 20
+            init_w = int(edited_preview.width * logo_scale)
+            init_h = int(init_w * logo_img.height / logo_img.width)
+
+            # Canvas with draggable logo
             canvas_result = st_canvas(
-                background_image=edited_np,
+                background_image=edited_np,   # safe (RGB only)
                 update_streamlit=True,
                 width=edited_preview.width,
                 height=edited_preview.height,
                 drawing_mode="transform",
-                key="canvas"
+                initial_drawing={
+                    "objects": [
+                        {
+                            "type": "image",
+                            "left": init_x,
+                            "top": init_y,
+                            "width": init_w,
+                            "height": init_h,
+                            "scaleX": 1,
+                            "scaleY": 1,
+                            "src": logo_src,   # ✅ base64-encoded logo
+                        }
+                    ]
+                },
+                key="canvas",
             )
+
+            # Track logo position and size
             if canvas_result.json_data is not None:
                 objects = canvas_result.json_data.get("objects", [])
                 if objects:
-                    obj = objects[-1]
+                    obj = objects[0]
                     logo_x, logo_y = int(obj["left"]), int(obj["top"])
+                    logo_w, logo_h = int(obj["width"]), int(obj["height"])
                     logo_position = (logo_x, logo_y)
-                    edited_preview = add_logo(edited_preview, logo_file, logo_scale, logo_position)
+
+                    resized_logo = logo_img.resize((logo_w, logo_h))
+                    edited_preview.paste(resized_logo, logo_position, resized_logo)
 
         show_original = st.checkbox("👁 Show Original")
         if show_original:

@@ -147,6 +147,15 @@ if uploaded_files:
         new_size = (int(preview_img.width*ratio), int(preview_img.height*ratio))
         preview_img = preview_img.resize(new_size, Image.LANCZOS)
 
+    scale_factor = first_img.width / preview_img.width  # Add this line
+
+    # Adjust logo position and scale for original size
+    orig_logo_pos = (int(logo_x * scale_factor), int(logo_y * scale_factor))
+    orig_logo_scale = logo_scale * scale_factor
+
+    # Adjust font size for original size
+    orig_font_size = int(font_size * scale_factor)
+
     edited_preview = apply_edits(preview_img.copy(), saturation, brightness, contrast, effect,
                                  hue_shift, r_scale, g_scale, b_scale)
     edited_preview = add_lower_third(edited_preview, lower_text, font_name, font_size, font_color, lower_pos)
@@ -156,10 +165,12 @@ if uploaded_files:
 
 # Batch Process
 if uploaded_files and st.button("🚀 Process All Images"):
-    zip_file = process_batch(uploaded_files, saturation, brightness, contrast, effect,
-                             hue_shift, r_scale, g_scale, b_scale,
-                             logo_file, logo_scale, (logo_x, logo_y),
-                             lower_text, font_name, font_size, font_color, lower_pos)
+    zip_file = process_batch(
+        uploaded_files, saturation, brightness, contrast, effect,
+        hue_shift, r_scale, g_scale, b_scale,
+        logo_file, orig_logo_scale, orig_logo_pos,
+        lower_text, font_name, orig_font_size, font_color, lower_pos
+    )
     st.download_button(
         label="⬇️ Download All Edited Images (ZIP)",
         data=zip_file,

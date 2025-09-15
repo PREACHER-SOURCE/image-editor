@@ -165,10 +165,11 @@ if uploaded_files:
     # Full-resolution logo size
     logo_img = Image.open(logo_file).convert("RGBA") if logo_file else None
     if logo_img:
-        logo_w = int(first_img.width * logo_scale)
+        # Calculate logo width in preview, then scale for original
+        preview_logo_w = int(preview_img.width * logo_scale)
+        logo_w = int(preview_logo_w * scale_factor)
         logo_h = int(logo_w * logo_img.height / logo_img.width)
         resized_logo = logo_img.resize((logo_w, logo_h))
-        # Paste at scaled position
         first_img.paste(resized_logo, orig_logo_pos, resized_logo)
 
     edited_preview = apply_edits(preview_img.copy(), saturation, brightness, contrast, effect,

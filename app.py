@@ -1,6 +1,6 @@
 import streamlit as st
 from PIL import Image, ImageEnhance, ImageOps, ImageDraw, ImageFont
-import os
+from streamlit_drawable_canvas import st_canvas
 import zipfile
 from io import BytesIO
 import colorsys
@@ -56,26 +56,14 @@ def adjust_color_balance(image, r_scale, g_scale, b_scale):
     return Image.merge("RGB", (r, g, b))
 
 def add_logo(image, logo_file, scale, pos):
-    """Overlay logo with free transform"""
-    if not logo_file:
+    """Overlay logo at given position"""
+    if not logo_file or pos is None:
         return image
-
     logo = Image.open(logo_file).convert("RGBA")
-    img_w, img_h = image.size
-    logo_w = int(img_w * scale)
+    logo_w = int(image.width * scale)
     logo_h = int(logo_w * logo.size[1] / logo.size[0])
     logo_resized = logo.resize((logo_w, logo_h))
-
-    if pos == "Top-Right":
-        xy = (img_w - logo_w - 10, 10)
-    elif pos == "Top-Left":
-        xy = (10, 10)
-    elif pos == "Bottom-Right":
-        xy = (img_w - logo_w - 10, img_h - logo_h - 10)
-    else:  # Bottom-Left
-        xy = (10, img_h - logo_h - 10)
-
-    image.paste(logo_resized, xy, logo_resized)
+    image.paste(logo_resized, pos, logo_resized)
     return image
 
 def add_lower_third(image, text, font_size, color, position):
@@ -127,64 +115,89 @@ def process_batch(images, saturation, brightness, contrast, effect,
     return zip_buffer
 
 # ------------------ Streamlit UI ------------------
-st.set_page_config(page_title="Smart Image Editor", layout="centered")
+st.set_page_config(page_title="Smart Image Editor", layout="wide")
 st.title("✨ Smart Image Editor")
-
 st.markdown("Upload images, adjust settings, preview, and download!")
 
-# Uploads
-uploaded_files = st.file_uploader("📂 Upload one or more JPG/PNG images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-logo_file = st.file_uploader("🖼️ Upload your Logo (PNG)", type=["png"])
+# File uploads
+with st.sidebar:
+    st.header("📂 Uploads")
+    uploaded_files = st.file_uploader("Upload JPG/PNG images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    logo_file = st.file_uploader("Upload Logo (PNG)", type=["png"])
 
-# Sliders for basic edits
-saturation = st.slider("🎨 Saturation", 0.0, 3.0, 1.2, 0.1)
-brightness = st.slider("💡 Brightness", 0.0, 3.0, 1.1, 0.1)
-contrast = st.slider("⚡ Contrast", 0.0, 3.0, 1.2, 0.1)
+    st.header("🎨 Adjustments")
+    saturation = st.slider("Saturation", 0.0, 3.0, 1.2, 0.1)
+    brightness = st.slider("Brightness", 0.0, 3.0, 1.1, 0.1)
+    contrast = st.slider("Contrast", 0.0, 3.0, 1.2, 0.1)
 
-# Advanced controls
-hue_shift = st.slider("🌈 Hue Shift", -0.5, 0.5, 0.0, 0.01)
-r_scale = st.slider("🔴 Red Balance", 0.0, 3.0, 1.0, 0.1)
-g_scale = st.slider("🟢 Green Balance", 0.0, 3.0, 1.0, 0.1)
-b_scale = st.slider("🔵 Blue Balance", 0.0, 3.0, 1.0, 0.1)
+    hue_shift = st.slider("Hue Shift", -0.5, 0.5, 0.0, 0.01)
+    r_scale = st.slider("Red Balance", 0.0, 3.0, 1.0, 0.1)
+    g_scale = st.slider("Green Balance", 0.0, 3.0, 1.0, 0.1)
+    b_scale = st.slider("Blue Balance", 0.0, 3.0, 1.0, 0.1)
 
-# Effects
-effect = st.selectbox("✨ Effect", ["None", "Black & White", "Invert", "Sepia"])
+    effect = st.selectbox("Effect", ["None", "Black & White", "Invert", "Sepia"])
 
-# Logo controls
-logo_scale = st.slider("📏 Logo Size (relative)", 0.01, 0.3, 0.05, 0.01)
-logo_pos = st.selectbox("📍 Logo Position", ["Top-Right", "Top-Left", "Bottom-Right", "Bottom-Left"])
+    st.header("🖼️ Logo")
+    logo_scale = st.slider("Logo Size (relative)", 0.01, 0.3, 0.05, 0.01)
 
-# Lower third
-lower_text = st.text_input("✍️ Lower Third Text (e.g., Church Name)")
-font_size = st.slider("🔠 Text Size", 10, 100, 40)
-font_color = st.color_picker("🎨 Text Color", "#FFFFFF")
-lower_pos = st.selectbox("📍 Lower Third Position", ["Bottom", "Top", "Left", "Right"])
+    st.header("✍️ Lower Third")
+    lower_text = st.text_input("Text (e.g., Church Name)")
+    font_size = st.slider("Font Size", 10, 100, 40)
+    font_color = st.color_picker("Text Color", "#FFFFFF")
+    lower_pos = st.selectbox("Position", ["Bottom", "Top", "Left", "Right"])
 
-# Preview
+# Preview and drag-drop logo
+logo_position = None
 if uploaded_files:
-    st.subheader("🔍 Preview of First Image")
-    first_img = Image.open(uploaded_files[0]).convert("RGB")
-    edited_preview = apply_edits(first_img.copy(), saturation, brightness, contrast, effect,
-                                 hue_shift, r_scale, g_scale, b_scale)
-    edited_preview = add_logo(edited_preview, logo_file, logo_scale, logo_pos)
-    edited_preview = add_lower_third(edited_preview, lower_text, font_size, font_color, lower_pos)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader("🔍 Preview of First Image")
+        first_img = Image.open(uploaded_files[0]).convert("RGB")
 
-    show_original = st.checkbox("👁 Show Original")
-    if show_original:
-        st.image(first_img, caption="Original Image", use_column_width=True)
-    else:
-        st.image(edited_preview, caption="Edited Preview", use_column_width=True)
+        # Apply edits (without logo yet)
+        edited_preview = apply_edits(first_img.copy(), saturation, brightness, contrast, effect,
+                                     hue_shift, r_scale, g_scale, b_scale)
+        edited_preview = add_lower_third(edited_preview, lower_text, font_size, font_color, lower_pos)
+
+        if logo_file:
+            st.write("👉 Drag your logo into position")
+            canvas_result = st_canvas(
+                background_image=edited_preview,
+                update_streamlit=True,
+                width=edited_preview.width,
+                height=edited_preview.height,
+                drawing_mode="transform",  # allows drag + resize
+                key="canvas"
+            )
+
+            if canvas_result.json_data is not None:
+                objects = canvas_result.json_data.get("objects", [])
+                if objects:
+                    obj = objects[-1]
+                    logo_x, logo_y = int(obj["left"]), int(obj["top"])
+                    logo_w = int(edited_preview.width * logo_scale)
+                    logo_h = int(logo_w * Image.open(logo_file).size[1] / Image.open(logo_file).size[0])
+                    logo_position = (logo_x, logo_y)
+                    edited_preview = add_logo(edited_preview, logo_file, logo_scale, logo_position)
+
+        show_original = st.checkbox("👁 Show Original")
+        if show_original:
+            st.image(first_img, caption="Original", use_column_width=True)
+        else:
+            st.image(edited_preview, caption="Edited Preview", use_column_width=True)
+
+    with col2:
+        st.info("✅ Adjust edits on the left sidebar.\n✅ Drag logo directly on the preview.\n✅ Apply to all with 'Process All Images'.")
 
 # Batch process
-if uploaded_files:
-    if st.button("🚀 Process All Images"):
-        zip_file = process_batch(uploaded_files, saturation, brightness, contrast, effect,
-                                 hue_shift, r_scale, g_scale, b_scale,
-                                 logo_file, logo_scale, logo_pos,
-                                 lower_text, font_size, font_color, lower_pos)
-        st.download_button(
-            label="⬇️ Download All Edited Images (ZIP)",
-            data=zip_file,
-            file_name="edited_images.zip",
-            mime="application/zip"
-        )
+if uploaded_files and st.button("🚀 Process All Images"):
+    zip_file = process_batch(uploaded_files, saturation, brightness, contrast, effect,
+                             hue_shift, r_scale, g_scale, b_scale,
+                             logo_file, logo_scale, logo_position,
+                             lower_text, font_size, font_color, lower_pos)
+    st.download_button(
+        label="⬇️ Download All Edited Images (ZIP)",
+        data=zip_file,
+        file_name="edited_images.zip",
+        mime="application/zip"
+    )

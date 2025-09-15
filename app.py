@@ -169,8 +169,10 @@ if uploaded_files:
 
         if logo_file:
             st.write("👉 Drag your logo into position")
+            # Ensure RGBA mode for compatibility
+            canvas_bg = edited_preview.convert("RGBA")
             canvas_result = st_canvas(
-                background_image=edited_preview,
+                background_image=canvas_bg,
                 update_streamlit=True,
                 width=edited_preview.width,
                 height=edited_preview.height,

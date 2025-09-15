@@ -147,7 +147,19 @@ if uploaded_files:
         new_size = (int(preview_img.width*ratio), int(preview_img.height*ratio))
         preview_img = preview_img.resize(new_size, Image.LANCZOS)
 
+    # Scale factor between preview and original
     scale_factor = first_img.width / preview_img.width
+
+    # Adjust logo size for full-resolution export
+    orig_logo_scale = logo_scale * scale_factor
+
+    # Adjust logo position for full-resolution export
+    orig_logo_x = int(logo_x * scale_factor)
+    orig_logo_y = int(logo_y * scale_factor)
+    orig_logo_pos = (orig_logo_x, orig_logo_y)
+
+    # Adjust font size for export
+    orig_font_size = int(font_size * scale_factor)
 
     # Adjust logo position and size
     orig_logo_x = int(logo_x * scale_factor)

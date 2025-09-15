@@ -170,7 +170,7 @@ if uploaded_files:
 
         if logo_file:
             st.write("👉 Drag your logo into position")
-            edited_np = np.array(edited_preview)  # ✅ Convert PIL → NumPy
+            edited_np = np.array(edited_preview.convert("RGB"))  # ✅ Ensure RGB format
             canvas_result = st_canvas(
                 background_image=edited_np,
                 update_streamlit=True,

@@ -5,6 +5,7 @@ import zipfile
 from io import BytesIO
 import colorsys
 from fonts_config import load_font, FONTS
+import numpy as np
 
 # ------------------ Functions ------------------
 def apply_edits(image, saturation, brightness, contrast, effect, hue_shift, r_scale, g_scale, b_scale):
@@ -169,10 +170,9 @@ if uploaded_files:
 
         if logo_file:
             st.write("👉 Drag your logo into position")
-            # Ensure RGBA mode for compatibility
-            canvas_bg = edited_preview.convert("RGBA")
+            edited_np = np.array(edited_preview)  # ✅ Convert PIL → NumPy
             canvas_result = st_canvas(
-                background_image=canvas_bg,
+                background_image=edited_np,
                 update_streamlit=True,
                 width=edited_preview.width,
                 height=edited_preview.height,

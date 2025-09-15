@@ -147,11 +147,21 @@ if uploaded_files:
         new_size = (int(preview_img.width*ratio), int(preview_img.height*ratio))
         preview_img = preview_img.resize(new_size, Image.LANCZOS)
 
-    scale_factor = first_img.width / preview_img.width  # Add this line
+    scale_factor = first_img.width / preview_img.width
 
-    # Adjust logo position and scale for original size
-    orig_logo_pos = (int(logo_x * scale_factor), int(logo_y * scale_factor))
-    orig_logo_scale = logo_scale * scale_factor
+    # Adjust logo position and size
+    orig_logo_x = int(logo_x * scale_factor)
+    orig_logo_y = int(logo_y * scale_factor)
+    orig_logo_pos = (orig_logo_x, orig_logo_y)
+
+    # Adjust logo size
+    logo_img = Image.open(logo_file).convert("RGBA")
+    logo_w = int(logo_img.width * logo_scale * scale_factor)
+    logo_h = int(logo_w * logo_img.height / logo_img.width)
+    resized_logo = logo_img.resize((logo_w, logo_h))
+
+    # Paste at scaled position
+    first_img.paste(resized_logo, orig_logo_pos, resized_logo)
 
     # Adjust font size for original size
     orig_font_size = int(font_size * scale_factor)
